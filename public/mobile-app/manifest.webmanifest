@@ -1,0 +1,17 @@
+{
+  "name": "SIGA Mobile",
+  "short_name": "SIGA",
+  "start_url": "../mobile",
+  "display": "standalone",
+  "background_color": "#151521",
+  "theme_color": "#151521",
+  "orientation": "portrait",
+  "icons": [
+    {
+      "src": "../assets/compiled/svg/favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    }
+  ]
+}

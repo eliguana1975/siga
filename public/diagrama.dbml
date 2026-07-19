@@ -1,0 +1,450 @@
+Table ajustes {
+  id int [pk, increment]
+  provincia_id int [ref: > provincia.id]
+  ciudad_id int [ref: > ciudad.id]
+
+  nombre varchar(150) [not null]
+  descripcion text
+  direccion text
+  telefono varchar(50)
+  email varchar(150)
+  divisa varchar(10) [not null, default: 'USD']
+  logo varchar(255) [null]
+  web varchar(255) [null]
+}
+
+Table roles {
+  id int [pk, increment]
+  nombre varchar(100) [not null, unique]
+}
+
+Table users {
+  id int [pk, increment]
+  rol_id int [ref: > roles.id]
+
+  nombre varchar(100) [not null]
+  email varchar(150) [not null, unique]
+  password varchar(255) [not null]
+}
+
+Table chat_conversaciones {
+  id int [pk, increment]
+  user_one_id int [not null, ref: > users.id]
+  user_two_id int [not null, ref: > users.id]
+  last_message_at timestamp [null]
+  created_at timestamp
+  updated_at timestamp
+}
+
+Table chat_mensajes {
+  id int [pk, increment]
+  chat_conversacion_id int [not null, ref: > chat_conversaciones.id]
+  emisor_id int [not null, ref: > users.id]
+  receptor_id int [not null, ref: > users.id]
+  mensaje text [not null]
+  leido_at timestamp [null]
+  created_at timestamp
+  updated_at timestamp
+}
+
+Table depositos {
+
+  id int [pk, increment]
+  
+  nombre varchar(150) [not null]
+  direccion text
+  telefono varchar(50)
+  estado enum('activa','inactiva') [not null, default: 'activa']
+}
+
+Table bases {
+  id int [pk, increment]
+
+  deposito_id int [ref: > depositos.id]
+  provincia_id int [ref: > provincia.id]
+  ciudad_id int [ref: > ciudad.id]
+
+  nombre varchar(150) [not null]
+  direccion text
+  telefono varchar(50)
+  estado enum('activa','inactiva') [not null, default: 'activa']
+}
+
+Table empleados {
+
+  id int [pk, increment]
+  usuario_id int [ref: > users.id]
+  base_id int [ref: > bases.id]
+  
+  nombres varchar(255) [not null]
+  apellidos varchar(255) [not null]
+  tipo_doc enum('CI','DNI') [not null]
+  numero_doc varchar(50) [not null, unique] 
+  telefono varchar(50)
+  direccion text
+  fecha_nacimiento date
+  estado enum('activo','inactivo') [not null, default: 'activo']
+}
+
+Table categorias {
+  id int [pk, increment]
+  nombre varchar(150) [not null, unique]
+}
+
+Table articulos {
+  id int [pk, increment]
+
+  categoria_id int [ref: > categorias.id]
+  unidad_medida_id int [ref: > unidad_medidas.id]
+
+  nombre varchar(255) [not null]
+  codigo_producto varchar(255) [not null]
+  foto_articulo_1 varchar(255) [null]
+  foto_articulo_2 varchar(255) [null]
+  foto_articulo_3 varchar(255) [null]
+  stock_Minimo int [not null, default: 0]
+  stock_Maximo int [not null, default: 0]
+  stock_pedido int [not null, default: 0]
+  estado_item enum('activo','inactivo') [not null, default: 'activo']
+  observaciones text
+}
+
+Table unidad_medidas {
+  id int [pk, increment]
+  nombre varchar(150) [not null, unique]
+}
+
+Table proveedores {
+ 
+  id int [pk, increment]
+
+  provincia_id int [ref: > provincia.id]
+  ciudades_id int [ref: > ciudad.id]
+
+  nombre varchar(255) [not null]
+  telefono varchar(50)
+  email varchar(150)
+  direccion text
+  contacto varchar(150)
+  notas text
+}
+
+Table inventarios {
+  id int [pk, increment]
+  
+  deposito_id int
+  articulo_id int
+    
+  precio_compra_unidad decimal(12,2) [not null]
+  cantidad int [not null]
+  stock_minimo int [not null, default: 0]
+  stock_maximo int [not null, default: 0]
+  fecha_registro datetime [not null, default: `CURRENT_TIMESTAMP`]
+
+  estado enum('compra','ajuste','traslado') [not null]
+}
+
+Table entrada {
+  id int [pk, increment]
+
+  compra_id int [ref: > compra.id]
+  deposito_id int [not null, ref: > depositos.id]
+  proveedor_id int [ref: > proveedores.id]
+  usuario_id int [ref: > users.id]
+
+  nro_orden_compra varchar(100) [null]
+  nro_comprobante_proveedor varchar(100) [null]
+  fecha_entrada datetime [not null, default: `CURRENT_TIMESTAMP`]
+  total_entrada decimal(12,2) [not null, default: 0.00]
+  observaciones text
+}
+
+Table detalle_entrada {
+  id int [pk, increment]
+
+  entrada_id int [not null, ref: > entrada.id]
+  articulo_id int [not null, ref: > articulos.id]
+
+  cantidad int [not null]
+  precio_compra_unidad decimal(12,2) [null]
+}
+
+Table tmp_compra {
+  id int [pk, increment]
+
+  usuario_id int [ref: > users.id]  
+  deposito_id int [ref: > depositos.id]
+  articulo_id int [ref: > articulos.id]
+  
+  precio_compra_unidad decimal(12,2) [not null]
+  cantidad int [not null]
+  fecha_creacion datetime [not null, default: `CURRENT_TIMESTAMP`]
+
+  estado enum('activo','inactivo', 'inactivo', 'pendiente', 'confirmado', 'cancelado') [not null, default: 'activo']
+
+}
+
+Table tmp_pedido_articulo {
+  id int [pk, increment]
+
+  usuario_id int [ref: > users.id]  
+  deposito_id int [ref: > depositos.id]
+  articulo_id int [ref: > articulos.id]
+  
+  cantidad int [not null]
+  fecha_creacion datetime [not null, default: `CURRENT_TIMESTAMP`]
+
+  estado enum('activo','inactivo', 'inactivo', 'pendiente', 'confirmado', 'cancelado') [not null, default: 'activo']
+
+}
+
+Table compra {
+  id int [pk, increment]
+  
+  deposito_id int [not null, ref: > depositos.id]
+  proveedor_id int [ref: > proveedores.id]
+  usuario_id int [ref: > users.id]
+  
+  fecha_compra datetime [not null, default: `CURRENT_TIMESTAMP`]
+  total_compra decimal(12,2) [not null, default: 0.00]
+  estado enum('pendiente','recibido','cancelado') [not null, default: 'pendiente']
+  comprobante varchar(100) [null]
+  notas text
+}
+
+Table pedidos_articulo {
+  id int [pk, increment]
+
+  deposito_id int [ref: > depositos.id]
+  usuario_id int [ref: > users.id]
+
+  fecha_pedido datetime [not null, default: `CURRENT_TIMESTAMP`]
+  estado enum('pendiente','confirmado','cancelado') [not null, default: 'pendiente']
+  notas text
+}
+
+Table compra_detalle {
+  id int [pk, increment]
+  
+  compra_id int [ref: > compra.id]
+  articulo_id int [ref: > articulos.id]
+
+  precio_compra_unidad decimal(12,2) [not null]
+  cantidad int [not null]
+}
+
+Table pedido_detalle_articulo {
+  id int [pk, increment]
+  
+  pedidos_articulo_id int [ref: > pedidos_articulo.id]
+  articulo_id int [ref: > articulos.id]
+
+  cantidad int [not null]
+}
+
+Table tmp_salida {
+  id int [pk, increment]
+
+  articulo_id int [ref: > articulos.id]
+  usuario_id int [ref: > users.id]
+  deposito_id int [ref: > depositos.id]
+
+  precio_venta_unidad decimal(12,2) [not null]
+  cantidad int [not null]
+}
+
+Table salida {
+  id int [pk, increment]
+  
+  deposito_id int [not null, ref: > depositos.id]
+  flota_id int [ref: > flota.id]
+  usuario_id int [ref: > users.id]
+  
+  fecha_salida datetime [not null, default: `CURRENT_TIMESTAMP`]
+  total_salida decimal(12,2) [not null, default: 0.00]
+  estado enum('pendiente','emitida','cancelada','devuelta') [not null, default: 'emitida']
+  notas text
+}
+
+Table salida_detalle {
+  id int [pk, increment]
+  
+  salida_id int [ref: > salida.id]
+  articulo_id int [ref: > articulos.id]
+  
+  cantidad int [not null]
+  precio_salida_unidad decimal(12,2) [not null]
+}
+
+Table ciudad {
+  id int [pk, increment]
+  nombre varchar(150) [not null, unique]
+}
+
+Table provincia {
+  id int [pk, increment]
+  nombre varchar(150) [not null, unique]
+}
+
+Table tipo_motor {
+  id int [pk, increment]
+  nombre varchar(100) [not null, unique]
+}
+
+Table modelo_motor {
+  id int [pk, increment]
+  nombre varchar(100) [not null, unique]
+}
+
+Table marca_carroceria {
+  id int [pk, increment]
+  nombre varchar(100) [not null, unique]
+}
+
+Table marca_vehiculo {
+  id int [pk, increment]
+  nombre varchar(100) [not null, unique]
+}
+
+Table titular {
+  id int [pk, increment]
+  nombre varchar(150) [not null]
+  direccion text
+  telefono varchar(50)
+  email varchar(150)
+} 
+
+Table tipo_vehiculo {
+  id int [pk, increment]
+  nombre varchar(100) [not null, unique]
+}
+
+Table cia_seguro {
+  id int [pk, increment]
+  nombre varchar(150) [not null, unique]
+  telefono varchar(50)
+  email varchar(150)
+  direccion text
+  contacto varchar(150)
+  notas text
+}
+
+Table modelo_caja {
+  id int [pk, increment]
+  nombre varchar(100) [not null, unique]
+}
+
+Table tipo_caja {
+  id int [pk, increment]
+  nombre varchar(100) [not null, unique]
+}
+
+Table configuracion_intervalos_servicio {
+  id int [pk, increment]
+
+  sistema varchar(120) [not null]
+  nombre varchar(120) [not null]
+  kilometros_intervalo int [not null]
+  estado enum('activo','inactivo') [not null, default: 'activo']
+  observaciones text
+}
+
+Table registros_servicios_kilometraje {
+  id int [pk, increment]
+
+  flota_id int [not null, ref: > flota.id]
+  configuracion_intervalo_servicio_id int [not null, ref: > configuracion_intervalos_servicio.id]
+  user_id int [ref: > users.id]
+
+  kilometraje_servicio int [not null]
+  fecha_servicio datetime [not null]
+  observaciones text
+}
+
+Table flota {
+  id int [pk, increment]
+
+  tipo_motor_id int [ref: > tipo_motor.id]
+  modelo_motor_id int [ref: > modelo_motor.id]
+  cod_marca_carroceria_id int [ref: > marca_carroceria.id]
+  cod_titular_id int [ref: > titular.id]
+  cod_tipo_vehiculo_id int [ref: > tipo_vehiculo.id]
+  cod_cia_seguro_id int [ref: > cia_seguro.id]
+  modelo_caja_id int [ref: > modelo_caja.id]
+  tipo_caja_id int [ref: > tipo_caja.id]
+  marca_vehiculo_id int [ref: > marca_vehiculo.id]
+
+  tipo_aceite_motor varchar(50)
+  tipo_aceite_caja varchar(50)
+  nro_interno varchar(50) [not null, unique]
+  dominio varchar(20) [not null, unique]
+  estado enum('activo','baja','mantenimiento') [not null, default: 'activo']
+  nro_motor varchar(50) [not null, unique]
+  nro_chasis varchar(50) [not null, unique]
+  cant_aceite_motor int [not null]
+  cant_aceite_caja int [not null]
+  med_cub_delanteras varchar(50) [not null]
+  med_cub_traseras varchar(50) [not null]
+  cantidad_pasajeros int
+  anio_fabricacion int
+  nro_poliza varchar(100)
+  estado_seguro enum('Activo','Baja') [not null, default: 'Activo']
+  observaciones text
+  foto_flota varchar(255) [null]
+  foto_flota_2 varchar(255) [null]
+  foto_flota_3 varchar(255) [null]
+  foto_flota_4 varchar(255) [null]
+
+}
+
+Table ordenes_trabajo {
+  id int [pk, increment]
+  empleado_id int [not null, ref: > empleados.id]
+  flota_id int [not null, ref: > flota.id]
+  base_id int [ref: > bases.id]
+  kilometraje int [not null]
+  fecha_orden datetime [not null]
+  tipo_trabajo enum('preventivo','correctivo','inspeccion','reparacion') [not null, default: 'correctivo']
+  prioridad enum('baja','media','alta','urgente') [not null, default: 'media']
+  estado enum('pendiente','en_proceso','completada','cancelada') [not null, default: 'pendiente']
+  titulo varchar(150) [not null]
+  descripcion text
+  observaciones text
+  fecha_cierre datetime [null]
+}
+
+Table orden_trabajo_articulos {
+  id int [pk, increment]
+  orden_trabajo_id int [not null, ref: > ordenes_trabajo.id]
+  articulo_id int [not null, ref: > articulos.id]
+  cantidad int [not null, default: 1]
+  valor_unitario decimal(12,2) [not null, default: 0.00]
+  inventario_descontado boolean [not null, default: false]
+  observaciones text
+}
+
+Table cambios_cubiertas {
+  id int [pk, increment]
+  orden_trabajo_id int [not null, ref: > ordenes_trabajo.id]
+  flota_id int [not null, ref: > flota.id]
+  empleado_id int [not null, ref: > empleados.id]
+  user_id int [ref: > users.id]
+  fecha date [not null]
+  kilometraje int
+  observaciones text
+  created_at timestamp
+  updated_at timestamp
+}
+
+Table detalle_cambio_cubiertas {
+  id int [pk, increment]
+  cambio_cubierta_id int [not null, ref: > cambios_cubiertas.id]
+  articulo_colocado_id int [ref: > articulos.id]
+  orden_trabajo_articulo_id int [ref: > orden_trabajo_articulos.id]
+  posicion varchar(10) [not null]
+  nro_cubierta_sacada varchar(80)
+  nro_cubierta_colocada varchar(80) [unique]
+  valor_unitario decimal(12,2) [not null, default: 0.00]
+  created_at timestamp
+  updated_at timestamp
+}
