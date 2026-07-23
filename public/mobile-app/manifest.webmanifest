@@ -1,8 +1,8 @@
 {
-  "name": "SIGA Mobile",
+  "name": "SIGA Fleet",
   "short_name": "SIGA",
-  "start_url": "../mobile",
-  "scope": "../mobile",
+  "start_url": "../home",
+  "scope": "../",
   "display": "standalone",
   "background_color": "#151521",
   "theme_color": "#151521",
