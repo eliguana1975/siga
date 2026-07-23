@@ -1,5 +1,12 @@
 @extends('layouts.admin')
 
+@php
+    $user = auth()->user();
+    $roles = $user?->roles?->pluck('name')->map(fn ($role) => mb_strtoupper((string) $role, 'UTF-8')) ?? collect();
+    $puedeGestionarOtChecklist = ($user?->isSuperUsuario() || $roles->contains(fn ($role) => in_array($role, ['JEFE_TALLER', 'JEFE DE TALLER', 'MECANICO'], true)))
+        && $user?->can('ordenes-trabajo.crear');
+@endphp
+
 @section('content')
     <div class="page-heading">
         <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-2">
@@ -76,6 +83,11 @@
                                             <a href="{{ route('admin.controles-unidad.show', $control) }}" class="btn btn-sm btn-info" title="Ver control">
                                                 <i class="bi bi-eye"></i>
                                             </a>
+                                            @if ($puedeGestionarOtChecklist && $control->ordenTrabajo)
+                                                <a href="{{ route('admin.ordenes-trabajo.index', ['search' => $control->ordenTrabajo->id]) }}" class="btn btn-sm btn-warning" title="Abrir OT">
+                                                    <i class="bi bi-wrench-adjustable"></i>
+                                                </a>
+                                            @endif
                                             @can('controles-unidad.eliminar')
                                                 <button type="button" class="btn btn-sm btn-danger" data-bs-toggle="modal"
                                                     data-bs-target="#deleteControlUnidadModal-{{ $control->id }}" title="Eliminar">

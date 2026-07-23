@@ -3,6 +3,8 @@
 @section('auth', true)
 
 @push('styles')
+    <link rel="manifest" href="{{ asset('mobile-app/manifest.webmanifest') }}">
+    <meta name="theme-color" content="#151521">
     <style>
         #auth {
             min-height: 100vh;
@@ -45,27 +47,61 @@
             max-width: 390px;
         }
 
-        #auth .siga-mobile-entry {
+        #auth .siga-mobile-install {
+            width: 100%;
             max-width: 390px;
-            margin-top: 1.5rem;
-            padding: 1rem;
-            border: 1px solid rgba(67, 94, 190, .35);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 1.25rem;
+            margin-top: 1.15rem;
+            padding: 1rem 1.1rem;
+            color: #dfe4ff;
+            background: rgba(31, 30, 46, .82);
+            border: 1px solid #3d3d58;
             border-radius: .45rem;
-            background: rgba(16, 24, 40, .45);
         }
 
-        #auth .siga-mobile-entry strong {
-            display: block;
-            margin-bottom: .25rem;
+        #auth .siga-mobile-install-copy {
+            flex: 1 1 auto;
+            min-width: 0;
+        }
+
+        #auth .siga-mobile-install-title {
+            display: flex;
+            align-items: center;
+            gap: .55rem;
             color: #ffffff;
-            font-size: .98rem;
+            font-size: .9rem;
+            font-weight: 700;
         }
 
-        #auth .siga-mobile-entry p {
-            margin-bottom: .8rem;
+        #auth .siga-mobile-install-title i {
+            flex: 0 0 auto;
+            color: #8ea2ff;
+            font-size: 1.15rem;
+            line-height: 1;
+        }
+
+        #auth .siga-mobile-install p {
+            margin: .3rem 0 0;
             color: #b8bdd8;
-            font-size: .88rem;
-            line-height: 1.35;
+            font-size: .78rem;
+            line-height: 1.4;
+            overflow-wrap: anywhere;
+        }
+
+        #auth .siga-mobile-install .btn {
+            flex: 0 0 auto;
+            min-width: 6.25rem;
+            padding: .42rem .9rem;
+            border-radius: 999px;
+            font-size: .82rem;
+            font-weight: 600;
+        }
+
+        #auth .siga-mobile-install .btn:disabled {
+            opacity: .72;
         }
 
         #auth .form-group {
@@ -167,7 +203,7 @@
             display: flex;
             align-items: center;
             gap: 2rem;
-            margin-top: 3rem;
+            margin-top: 2.75rem;
         }
 
         #auth .siga-login-actions .btn {
@@ -241,6 +277,17 @@
                 max-width: none;
             }
 
+            #auth .siga-mobile-install {
+                max-width: none;
+                align-items: stretch;
+                flex-direction: column;
+                gap: .85rem;
+            }
+
+            #auth .siga-mobile-install .btn {
+                width: 100%;
+            }
+
             #auth .siga-login-actions {
                 align-items: stretch;
                 flex-direction: column;
@@ -306,12 +353,17 @@
                         </div>
                     </form>
 
-                    <div class="siga-mobile-entry">
-                        <strong><i class="bi bi-phone me-1"></i> SIGA Mobile</strong>
-                        <p>Acceso rapido para choferes, mecanicos y supervisores desde el celular.</p>
-                        <a href="{{ route('mobile.app') }}" class="btn btn-outline-primary w-100" target="_blank" rel="noopener">
-                            Abrir aplicacion movil
-                        </a>
+                    <div class="siga-mobile-install">
+                        <div class="siga-mobile-install-copy">
+                            <div class="siga-mobile-install-title">
+                                <i class="bi bi-phone"></i>
+                                <span>App movil</span>
+                            </div>
+                            <p id="webInstallHelp">Instalar en el telefono</p>
+                        </div>
+                        <button type="button" id="webInstallAppButton" class="btn btn-outline-primary">
+                            Instalar
+                        </button>
                     </div>
                 </div>
             </div>
@@ -337,21 +389,74 @@
             const passwordInput = document.getElementById('password');
             const toggleButton = document.getElementById('togglePassword');
             const toggleIcon = toggleButton?.querySelector('i');
+            const installButton = document.getElementById('webInstallAppButton');
+            const installHelp = document.getElementById('webInstallHelp');
+            let deferredInstallPrompt = null;
 
-            if (!passwordInput || !toggleButton || !toggleIcon) {
-                return;
+            function isStandaloneMode() {
+                return window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
             }
 
-            toggleButton.addEventListener('click', function() {
-                const isHidden = passwordInput.type === 'password';
+            function updateInstallButton() {
+                if (!installButton || !installHelp) {
+                    return;
+                }
 
-                passwordInput.type = isHidden ? 'text' : 'password';
-                toggleButton.setAttribute('aria-label', isHidden ? 'Ocultar contrasena' : 'Mostrar contrasena');
-                toggleButton.setAttribute('aria-pressed', isHidden ? 'true' : 'false');
-                toggleIcon.classList.toggle('bi-eye', !isHidden);
-                toggleIcon.classList.toggle('bi-eye-slash', isHidden);
-                passwordInput.focus();
+                if (isStandaloneMode()) {
+                    installButton.textContent = 'Instalada';
+                    installButton.disabled = true;
+                    installHelp.textContent = 'La app ya esta instalada.';
+                    return;
+                }
+
+                installButton.disabled = false;
+                installButton.textContent = deferredInstallPrompt ? 'Instalar' : 'Instalar';
+                installHelp.textContent = deferredInstallPrompt
+                    ? 'Toca instalar para agregar SIGA al telefono.'
+                    : 'Si el navegador no abre el instalador, entra a la app movil.';
+            }
+
+            if ('serviceWorker' in navigator) {
+                navigator.serviceWorker.register('{{ asset('mobile-sw.js') }}').catch(function() {});
+            }
+
+            window.addEventListener('beforeinstallprompt', function(event) {
+                event.preventDefault();
+                deferredInstallPrompt = event;
+                updateInstallButton();
             });
+
+            window.addEventListener('appinstalled', function() {
+                deferredInstallPrompt = null;
+                updateInstallButton();
+            });
+
+            installButton?.addEventListener('click', async function() {
+                if (!deferredInstallPrompt) {
+                    window.location.href = '{{ route('mobile.app') }}';
+                    return;
+                }
+
+                deferredInstallPrompt.prompt();
+                await deferredInstallPrompt.userChoice.catch(function() {});
+                deferredInstallPrompt = null;
+                updateInstallButton();
+            });
+
+            updateInstallButton();
+
+            if (passwordInput && toggleButton && toggleIcon) {
+                toggleButton.addEventListener('click', function() {
+                    const isHidden = passwordInput.type === 'password';
+
+                    passwordInput.type = isHidden ? 'text' : 'password';
+                    toggleButton.setAttribute('aria-label', isHidden ? 'Ocultar contrasena' : 'Mostrar contrasena');
+                    toggleButton.setAttribute('aria-pressed', isHidden ? 'true' : 'false');
+                    toggleIcon.classList.toggle('bi-eye', !isHidden);
+                    toggleIcon.classList.toggle('bi-eye-slash', isHidden);
+                    passwordInput.focus();
+                });
+            }
         });
     </script>
 @endpush

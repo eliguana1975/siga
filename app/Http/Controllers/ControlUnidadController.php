@@ -141,6 +141,40 @@ class ControlUnidadController extends Controller
         ]);
     }
 
+    public function crearOrdenTrabajo(Request $request, ControlUnidad $controlUnidad)
+    {
+        if (! $this->puedeGestionarOrdenDesdeChecklist($request)) {
+            return redirect()
+                ->route('admin.controles-unidad.show', $controlUnidad)
+                ->with('error', 'Solo jefe de taller o mecanico puede generar ordenes desde checklist.');
+        }
+
+        $controlUnidad->load('ordenTrabajo');
+
+        if ($controlUnidad->ordenTrabajo) {
+            return redirect()
+                ->route('admin.ordenes-trabajo.index', ['search' => $controlUnidad->ordenTrabajo->id])
+                ->with('success', 'La orden de trabajo ya estaba generada.');
+        }
+
+        if (! $this->hasNoCumple($controlUnidad->partes)) {
+            return redirect()
+                ->route('admin.controles-unidad.show', $controlUnidad)
+                ->with('error', 'Este checklist no tiene fallas para generar una orden de trabajo.');
+        }
+
+        $orden = DB::transaction(function () use ($controlUnidad) {
+            $orden = $this->createOrdenTrabajoFromControl($controlUnidad);
+            $controlUnidad->update(['orden_trabajo_id' => $orden->id]);
+
+            return $orden;
+        });
+
+        return redirect()
+            ->route('admin.ordenes-trabajo.index', ['search' => $orden->id])
+            ->with('success', 'Orden de trabajo creada desde checklist.');
+    }
+
     public function destroy(ControlUnidad $controlUnidad)
     {
         $controlUnidad->delete();
@@ -280,6 +314,23 @@ class ControlUnidadController extends Controller
         }
 
         return false;
+    }
+
+    private function puedeGestionarOrdenDesdeChecklist(Request $request): bool
+    {
+        $user = $request->user();
+
+        if (! $user || ! $user->can('ordenes-trabajo.crear')) {
+            return false;
+        }
+
+        if ($user->isSuperUsuario()) {
+            return true;
+        }
+
+        $roles = $user->roles->pluck('name')->map(fn ($role) => mb_strtoupper((string) $role, 'UTF-8'));
+
+        return $roles->contains(fn ($role) => in_array($role, ['JEFE_TALLER', 'JEFE DE TALLER', 'MECANICO'], true));
     }
 
     private function createOrdenTrabajoFromControl(ControlUnidad $control): OrdenTrabajo

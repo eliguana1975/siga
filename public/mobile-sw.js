@@ -1,10 +1,12 @@
-const CACHE_NAME = 'siga-mobile-v8';
+const CACHE_NAME = 'siga-mobile-v11';
 const scopeRoot = self.registration.scope.replace(/\/$/, '');
 const ASSETS = [
   `${scopeRoot}/mobile`,
   `${scopeRoot}/mobile-app/app.css`,
   `${scopeRoot}/mobile-app/app.js`,
-  `${scopeRoot}/mobile-app/manifest.webmanifest`
+  `${scopeRoot}/mobile-app/manifest.webmanifest`,
+  `${scopeRoot}/mobile-app/icons/icon-192.png`,
+  `${scopeRoot}/mobile-app/icons/icon-512.png`
 ];
 
 self.addEventListener('install', event => {

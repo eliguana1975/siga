@@ -45,6 +45,7 @@ Route::get('/admin/dashboards', [App\Http\Controllers\DashboardController::class
 Route::put('/admin/dashboards/{dashboard}', [App\Http\Controllers\DashboardController::class, 'update'])->name('admin.dashboards.update')->middleware('auth');
 Route::get('/admin/manual-usuario', [App\Http\Controllers\ManualUsuarioController::class, 'index'])->name('admin.manual-usuario.index')->middleware('auth');
 Route::get('/admin/bi', [App\Http\Controllers\BiController::class, 'index'])->name('admin.bi.index')->middleware('auth');
+Route::get('/admin/bi/flota', [App\Http\Controllers\BiController::class, 'flotaEstadisticas'])->name('admin.bi.flota-estadisticas')->middleware('auth');
 Route::get('/admin/bi/costeo-vehiculos.json', [App\Http\Controllers\BiController::class, 'costeoVehiculos'])->name('admin.bi.costeo-vehiculos')->middleware('auth');
 Route::get('/admin/bi/stock-critico.json', [App\Http\Controllers\BiController::class, 'stockCritico'])->name('admin.bi.stock-critico')->middleware('auth');
 Route::get('/admin/bi/solicitudes-repuestos.json', [App\Http\Controllers\BiController::class, 'solicitudesRepuestos'])->name('admin.bi.solicitudes-repuestos')->middleware('auth');
@@ -235,6 +236,7 @@ Route::get('/admin/controles-unidad', [App\Http\Controllers\ControlUnidadControl
 Route::get('/admin/controles-unidad/create', [App\Http\Controllers\ControlUnidadController::class, 'create'])->name('admin.controles-unidad.create')->middleware('auth');
 Route::post('/admin/controles-unidad/create', [App\Http\Controllers\ControlUnidadController::class, 'store'])->name('admin.controles-unidad.store')->middleware('auth');
 Route::get('/admin/controles-unidad/{controlUnidad}', [App\Http\Controllers\ControlUnidadController::class, 'show'])->name('admin.controles-unidad.show')->middleware('auth');
+Route::post('/admin/controles-unidad/{controlUnidad}/orden-trabajo', [App\Http\Controllers\ControlUnidadController::class, 'crearOrdenTrabajo'])->name('admin.controles-unidad.orden-trabajo')->middleware('auth');
 Route::delete('/admin/controles-unidad/{controlUnidad}', [App\Http\Controllers\ControlUnidadController::class, 'destroy'])->name('admin.controles-unidad.destroy')->middleware('auth');
 
 // Rutas para ordenes de trabajo

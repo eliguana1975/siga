@@ -59,6 +59,69 @@
     </div>
 
     <div class="page-content">
+        @if (! empty($quickActions))
+            <section class="row">
+                <div class="col-12">
+                    <div class="card">
+                        <div class="card-header">
+                            <h4 class="card-title mb-0">Accesos rapidos</h4>
+                        </div>
+                        <div class="card-body">
+                            <div class="row g-2">
+                                @foreach ($quickActions as $action)
+                                    <div class="col-12 col-md-6 col-xl-3">
+                                        <a href="{{ $action['url'] }}" class="btn btn-{{ $action['variant'] }} w-100 h-100 d-flex align-items-center gap-2 text-start">
+                                            <i class="{{ $action['icon'] }} fs-4"></i>
+                                            <span>
+                                                <span class="d-block fw-bold">{{ $action['label'] }}</span>
+                                                <small class="d-block text-white-50">{{ $action['description'] }}</small>
+                                            </span>
+                                        </a>
+                                    </div>
+                                @endforeach
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+        @endif
+
+        @if (! empty($priorityAlerts))
+            <section class="row">
+                <div class="col-12">
+                    <div class="card">
+                        <div class="card-header">
+                            <h4 class="card-title mb-0">Alertas prioritarias</h4>
+                        </div>
+                        <div class="card-body">
+                            <div class="row g-2">
+                                @foreach ($priorityAlerts as $alert)
+                                    @php
+                                        $class = match ($alert['priority']) {
+                                            'critica' => 'danger',
+                                            'alta' => 'warning',
+                                            default => 'info',
+                                        };
+                                    @endphp
+                                    <div class="col-12 col-md-6 col-xl-4">
+                                        <a href="{{ $alert['url'] }}" class="alert alert-{{ $class }} d-block mb-0 text-decoration-none">
+                                            <div class="d-flex justify-content-between align-items-start gap-2">
+                                                <div>
+                                                    <strong>{{ $alert['title'] }}</strong>
+                                                    <div>{{ $alert['detail'] }}</div>
+                                                </div>
+                                                <span class="badge bg-light-{{ $class }}">{{ ucfirst($alert['priority']) }}</span>
+                                            </div>
+                                        </a>
+                                    </div>
+                                @endforeach
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+        @endif
+
         @if (! $activeDashboard)
             <div class="alert alert-warning">
                 No tienes dashboards asignados. Solicita al superusuario que habilite un dashboard para tu rol.

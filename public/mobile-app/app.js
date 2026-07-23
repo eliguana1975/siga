@@ -5,6 +5,7 @@
   const mobileLoginUrl = root.dataset.mobileLoginUrl;
   const mobileLogoutUrl = root.dataset.mobileLogoutUrl;
   const QUEUE_KEY = 'siga_mobile_pending_queue';
+  let deferredInstallPrompt = null;
   const state = {
     token: localStorage.getItem('siga_mobile_token') || '',
     csrfToken: root.dataset.csrfToken || document.querySelector('meta[name="csrf-token"]')?.content || '',
@@ -22,8 +23,6 @@
       solicitudes: null
     }
   };
-
-  const webAppUrl = `${new URL(mobileLoginUrl || window.location.href, window.location.href).origin}${new URL(mobileLoginUrl || window.location.href, window.location.href).pathname.replace(/\/mobile\/auth\/login$/, '/admin')}`;
 
   const $ = selector => document.querySelector(selector);
   const $$ = selector => Array.from(document.querySelectorAll(selector));
@@ -105,6 +104,50 @@
     if (!node) return;
     node.textContent = text || '';
     node.classList.toggle('danger', error);
+  }
+
+  function isStandaloneMode() {
+    return window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
+  }
+
+  function updateInstallPanel() {
+    const panel = $('#installPanel');
+    const button = $('#installAppButton');
+    const help = $('#installHelp');
+
+    if (!panel || !button || !help) {
+      return;
+    }
+
+    if (isStandaloneMode()) {
+      panel.classList.add('hidden');
+      return;
+    }
+
+    panel.classList.remove('hidden');
+
+    if (deferredInstallPrompt) {
+      button.disabled = false;
+      button.textContent = 'Instalar app';
+      help.textContent = 'Toca instalar para agregar SIGA a la pantalla de inicio.';
+      return;
+    }
+
+    button.disabled = false;
+    button.textContent = 'Como instalar';
+    help.textContent = 'En Android usa el menu del navegador si no aparece el boton. En iPhone: Compartir > Agregar a inicio.';
+  }
+
+  async function promptInstallApp() {
+    if (!deferredInstallPrompt) {
+      window.alert('Para instalar: en Android abre el menu del navegador y toca Instalar app. En iPhone: Compartir > Agregar a inicio.');
+      return;
+    }
+
+    deferredInstallPrompt.prompt();
+    await deferredInstallPrompt.userChoice.catch(() => null);
+    deferredInstallPrompt = null;
+    updateInstallPanel();
   }
 
   function formatApiError(payload) {
@@ -342,6 +385,44 @@
     $$('.tab-page').forEach(page => page.classList.toggle('active', page.id === `tab-${tab}`));
   }
 
+  function resetMobileSession() {
+    localStorage.removeItem('siga_mobile_token');
+    state.token = '';
+    state.user = null;
+    state.permissions = [];
+    state.mobileMenu = [];
+    message('loginMessage', '');
+    setView('login');
+  }
+
+  async function enterMobileApp(userPayload = null) {
+    if (userPayload) {
+      state.user = userPayload;
+    } else {
+      const mePayload = await api('/me');
+      state.user = mePayload.user;
+    }
+
+    const permissionsPayload = await api('/me/permisos');
+    state.permissions = permissionsPayload.permissions || [];
+    state.mobileMenu = permissionsPayload.mobile_menu || [];
+
+    const userName = $('#userName');
+    const userRole = $('#userRole');
+
+    if (userName) {
+      userName.textContent = state.user?.name || 'SIGA';
+    }
+
+    if (userRole) {
+      const roles = userRoles();
+      userRole.textContent = roles.length ? roles.join(', ') : 'Mobile';
+    }
+
+    setView('app');
+    await loadAll();
+  }
+
   async function boot() {
     if (!state.token) {
       setView('login');
@@ -349,24 +430,9 @@
     }
 
     try {
-      const response = await fetch('session-user', {
-        credentials: 'same-origin',
-        headers: { Accept: 'application/json' }
-      });
-      const session = await response.json().catch(() => ({}));
-
-      if (session.authenticated) {
-        window.location.href = webAppUrl;
-        return;
-      }
-
-      localStorage.removeItem('siga_mobile_token');
-      state.token = '';
-      setView('login');
+      await enterMobileApp();
     } catch (error) {
-      localStorage.removeItem('siga_mobile_token');
-      state.token = '';
-      setView('login');
+      resetMobileSession();
     }
   }
 
@@ -733,7 +799,7 @@
       state.token = payload.access_token;
       localStorage.setItem('siga_mobile_token', state.token);
       form.reset();
-      window.location.href = payload.redirect_url || webAppUrl;
+      await enterMobileApp(payload.user);
     } catch (error) {
       message('loginMessage', error.message, true);
     }
@@ -747,9 +813,10 @@
       await webRequest(mobileLogoutUrl, { method: 'POST', body: JSON.stringify({}) });
     } catch (_) {}
     localStorage.removeItem('siga_mobile_token');
-    state.token = '';
-    setView('login');
+    resetMobileSession();
   });
+
+  $('#installAppButton')?.addEventListener('click', promptInstallApp);
 
   $$('.tabs button, [data-tab-jump]').forEach(button => {
     button.addEventListener('click', () => switchTab(button.dataset.tab || button.dataset.tabJump));
@@ -919,7 +986,17 @@
     navigator.serviceWorker.register(swUrl).catch(() => {});
   }
 
+  window.addEventListener('beforeinstallprompt', event => {
+    event.preventDefault();
+    deferredInstallPrompt = event;
+    updateInstallPanel();
+  });
+  window.addEventListener('appinstalled', () => {
+    deferredInstallPrompt = null;
+    updateInstallPanel();
+  });
   window.addEventListener('online', syncPendingQueue);
+  updateInstallPanel();
   updatePendingMetric();
   boot();
 })();

@@ -725,6 +725,7 @@ class SystemPermissions
             $routeName === 'admin.ordenes-trabajo.articulos.destroy' => 'ordenes-trabajo-articulos.quitar',
             $routeName === 'admin.ordenes-trabajo.registrar-servicio-kilometraje' => 'servicios-kilometraje.crear',
             Str::startsWith($routeName, 'admin.ordenes-trabajo-motivos.') => self::crudPermission($routeName, 'ordenes-trabajo-motivos'),
+            $routeName === 'admin.controles-unidad.orden-trabajo' => 'ordenes-trabajo.crear',
             Str::startsWith($routeName, 'admin.flota.servicio-asignado.') => 'flota-servicio-asignado.editar',
             Str::startsWith($routeName, 'admin.flota.repuestos.') => self::crudPermission($routeName, 'flota-repuestos'),
             Str::startsWith($routeName, 'admin.movimiento-cubiertas.') => self::crudPermission($routeName, 'movimiento-cubiertas'),

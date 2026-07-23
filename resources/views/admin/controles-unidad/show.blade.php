@@ -11,6 +11,12 @@
         'hecho' => ['label' => 'Hecho', 'class' => 'bg-light-success'],
         'sin_hacer' => ['label' => 'Sin hacer', 'class' => 'bg-light-warning'],
     ];
+
+    $user = auth()->user();
+    $roles = $user?->roles?->pluck('name')->map(fn ($role) => mb_strtoupper((string) $role, 'UTF-8')) ?? collect();
+    $puedeGestionarOtChecklist = ($user?->isSuperUsuario() || $roles->contains(fn ($role) => in_array($role, ['JEFE_TALLER', 'JEFE DE TALLER', 'MECANICO'], true)))
+        && $user?->can('ordenes-trabajo.crear');
+    $checklistTieneFallas = collect($control->partes ?? [])->contains(fn ($items) => is_array($items) && in_array('no_cumple', $items, true));
 @endphp
 
 @section('content')
@@ -63,6 +69,20 @@
                 <p class="text-subtitle text-muted">Interno {{ $control->flota?->nro_interno ?? $control->interno }} - {{ optional($control->created_at)->format('d/m/Y H:i') }}</p>
             </div>
             <div class="d-flex gap-2">
+                @if ($puedeGestionarOtChecklist && $checklistTieneFallas)
+                    @if ($control->ordenTrabajo)
+                        <a href="{{ route('admin.ordenes-trabajo.index', ['search' => $control->ordenTrabajo->id]) }}" class="btn btn-warning">
+                            <i class="bi bi-wrench-adjustable"></i> Abrir OT
+                        </a>
+                    @else
+                        <form method="POST" action="{{ route('admin.controles-unidad.orden-trabajo', $control) }}">
+                            @csrf
+                            <button type="submit" class="btn btn-warning">
+                                <i class="bi bi-wrench-adjustable"></i> Crear OT
+                            </button>
+                        </form>
+                    @endif
+                @endif
                 <button type="button" class="btn btn-outline-secondary" onclick="window.print()">
                     <i class="bi bi-printer"></i> Imprimir
                 </button>

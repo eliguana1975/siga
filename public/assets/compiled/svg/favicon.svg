@@ -1,1 +1,12 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 33 34" fill-rule="evenodd" stroke-linejoin="round" stroke-miterlimit="2" xmlns:v="https://vecta.io/nano"><path d="M3 27.472c0 4.409 6.18 5.552 13.5 5.552 7.281 0 13.5-1.103 13.5-5.513s-6.179-5.552-13.5-5.552c-7.281 0-13.5 1.103-13.5 5.513z" fill="#435ebe" fill-rule="nonzero"/><circle cx="16.5" cy="8.8" r="8.8" fill="#41bbdd"/></svg>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <rect width="64" height="64" rx="14" fill="#151521"/>
+  <path d="M11 37h5l3-10c.7-2.4 2.3-3.6 4.8-3.6h14.7c2 0 3.5.9 4.5 2.6l4 6.9h3.5c1.4 0 2.5 1.1 2.5 2.5V45H11v-8Z" fill="#435ebe"/>
+  <path d="M23.2 27.7h8.2v6.1H21.5l1.7-6.1Zm11.4 0h3.2c.9 0 1.5.4 2 1.1l2.9 5h-8.1v-6.1Z" fill="#dbeafe"/>
+  <path d="M14 42h38v4H14z" fill="#8ea2ff"/>
+  <circle cx="22" cy="47" r="5.8" fill="#0f172a"/>
+  <circle cx="22" cy="47" r="2.6" fill="#41bbdd"/>
+  <circle cx="44" cy="47" r="5.8" fill="#0f172a"/>
+  <circle cx="44" cy="47" r="2.6" fill="#41bbdd"/>
+  <path d="M14 19h13" stroke="#41bbdd" stroke-width="4" stroke-linecap="round"/>
+  <path d="M14 14h22" stroke="#8ea2ff" stroke-width="4" stroke-linecap="round"/>
+</svg>

@@ -3,13 +3,18 @@
 namespace App\Http\Controllers;
 
 use App\Models\Inventario;
+use App\Models\CambioCubierta;
+use App\Models\ControlUnidad;
+use App\Models\Flota;
 use App\Models\OrdenTrabajoArticulo;
+use App\Models\OrdenTrabajo;
 use App\Models\ReparacionArticulo;
 use App\Models\SolicitudRepuesto;
 use App\Support\VehicleCostService;
 use Carbon\Carbon;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 
 class BiController extends Controller
 {
@@ -21,6 +26,15 @@ class BiController extends Controller
 
     public function index()
     {
+        $reportes = [
+            [
+                'nombre' => 'Estadisticas de flota',
+                'descripcion' => 'Indicadores visuales por fecha y unidad: OT, checklists, costos, disponibilidad y fallas.',
+                'icono' => 'bi bi-car-front',
+                'url' => route('admin.bi.flota-estadisticas'),
+            ],
+        ];
+
         $datasets = [
             [
                 'nombre' => 'Costeo por vehiculo',
@@ -49,7 +63,194 @@ class BiController extends Controller
             ],
         ];
 
-        return view('admin.bi.index', compact('datasets'));
+        return view('admin.bi.index', compact('reportes', 'datasets'));
+    }
+
+    public function flotaEstadisticas(Request $request, VehicleCostService $service)
+    {
+        [$desde, $hasta] = $this->dateRange($request);
+        $validated = $request->validate([
+            'flota_id' => ['nullable', 'integer', 'exists:flota,id'],
+        ]);
+        $flotaId = isset($validated['flota_id']) ? (int) $validated['flota_id'] : null;
+
+        $flotas = Flota::query()
+            ->select('id', 'nro_interno', 'dominio')
+            ->orderBy('nro_interno')
+            ->get();
+
+        $flotaQuery = Flota::query();
+        if ($flotaId) {
+            $flotaQuery->whereKey($flotaId);
+        }
+
+        $estadoFlota = (clone $flotaQuery)
+            ->selectRaw("COALESCE(NULLIF(estado, ''), 'SIN ESTADO') as estado, COUNT(*) as total")
+            ->groupByRaw("COALESCE(NULLIF(estado, ''), 'SIN ESTADO')")
+            ->orderByDesc('total')
+            ->pluck('total', 'estado')
+            ->map(fn ($total) => (int) $total);
+
+        $ordenesQuery = OrdenTrabajo::query()
+            ->whereBetween('fecha_orden', [$desde, $hasta])
+            ->when($flotaId, fn ($query) => $query->where('flota_id', $flotaId));
+
+        $ordenesPorEstado = (clone $ordenesQuery)
+            ->selectRaw("COALESCE(NULLIF(estado, ''), 'SIN ESTADO') as estado, COUNT(*) as total")
+            ->groupByRaw("COALESCE(NULLIF(estado, ''), 'SIN ESTADO')")
+            ->pluck('total', 'estado')
+            ->map(fn ($total) => (int) $total);
+
+        $ordenesPorTipo = (clone $ordenesQuery)
+            ->selectRaw("COALESCE(NULLIF(tipo_trabajo, ''), 'SIN TIPO') as tipo, COUNT(*) as total")
+            ->groupByRaw("COALESCE(NULLIF(tipo_trabajo, ''), 'SIN TIPO')")
+            ->orderByDesc('total')
+            ->limit(8)
+            ->pluck('total', 'tipo')
+            ->map(fn ($total) => (int) $total);
+
+        $ordenesPorPrioridad = (clone $ordenesQuery)
+            ->selectRaw("COALESCE(NULLIF(prioridad, ''), 'SIN PRIORIDAD') as prioridad, COUNT(*) as total")
+            ->groupByRaw("COALESCE(NULLIF(prioridad, ''), 'SIN PRIORIDAD')")
+            ->pluck('total', 'prioridad')
+            ->map(fn ($total) => (int) $total);
+
+        $ordenesCerradas = (clone $ordenesQuery)
+            ->whereNotNull('fecha_cierre')
+            ->get(['fecha_orden', 'fecha_cierre']);
+        $promedioCierreHoras = $ordenesCerradas->count() > 0
+            ? round($ordenesCerradas->avg(fn (OrdenTrabajo $orden) => max(0, $orden->fecha_orden->diffInHours($orden->fecha_cierre))), 1)
+            : null;
+
+        $checklistsQuery = ControlUnidad::query()
+            ->whereBetween('created_at', [$desde, $hasta])
+            ->when($flotaId, fn ($query) => $query->where('flota_id', $flotaId));
+        $checklists = (clone $checklistsQuery)->get(['partes', 'control_unidad']);
+        $checklistsConObservaciones = $checklists->filter(fn (ControlUnidad $control) => $this->controlTieneIncidencias($control))->count();
+
+        $solicitudesQuery = SolicitudRepuesto::query()
+            ->whereBetween('fecha_solicitud', [$desde, $hasta])
+            ->when($flotaId, fn ($query) => $query->where('flota_id', $flotaId));
+        $solicitudesPorEstado = (clone $solicitudesQuery)
+            ->selectRaw("COALESCE(NULLIF(estado, ''), 'SIN ESTADO') as estado, COUNT(*) as total")
+            ->groupByRaw("COALESCE(NULLIF(estado, ''), 'SIN ESTADO')")
+            ->pluck('total', 'estado')
+            ->map(fn ($total) => (int) $total);
+
+        $cambiosCubiertas = CambioCubierta::query()
+            ->whereBetween('fecha', [$desde->toDateString(), $hasta->toDateString()])
+            ->when($flotaId, fn ($query) => $query->where('flota_id', $flotaId))
+            ->count();
+
+        $costeo = $service->ranking($desde, $hasta, 100);
+        if ($flotaId) {
+            $costeo['ranking'] = collect($costeo['ranking'])->where('flota_id', $flotaId)->values()->all();
+            $costeo['graficos'] = collect($costeo['graficos'])->where('flota_id', $flotaId)->values()->all();
+            $costeo['totales']['vehiculos_con_costo'] = collect($costeo['ranking'])->where('total', '>', 0)->count();
+            $costeo['totales']['repuestos'] = collect($costeo['ranking'])->sum('repuestos');
+            $costeo['totales']['cubiertas'] = collect($costeo['ranking'])->sum('cubiertas');
+            $costeo['totales']['total'] = collect($costeo['ranking'])->sum('total');
+        }
+
+        $ordenesPorVehiculo = $this->countByVehicle('ordenes_trabajo', 'fecha_orden', $desde, $hasta, $flotaId);
+        $checklistsPorVehiculo = $this->countByVehicle('controles_unidad', 'created_at', $desde, $hasta, $flotaId);
+        $solicitudesPorVehiculo = $this->countByVehicle('solicitudes_repuestos', 'fecha_solicitud', $desde, $hasta, $flotaId);
+        $vehiculosParados = (clone $ordenesQuery)
+            ->where('vehiculo_parado', true)
+            ->whereNotNull('flota_id')
+            ->distinct('flota_id')
+            ->count('flota_id');
+
+        $ranking = collect($costeo['ranking'])
+            ->map(function (array $row) use ($ordenesPorVehiculo, $checklistsPorVehiculo, $solicitudesPorVehiculo) {
+                $flotaId = (int) $row['flota_id'];
+                return $row + [
+                    'ordenes' => (int) ($ordenesPorVehiculo[$flotaId] ?? 0),
+                    'checklists' => (int) ($checklistsPorVehiculo[$flotaId] ?? 0),
+                    'solicitudes' => (int) ($solicitudesPorVehiculo[$flotaId] ?? 0),
+                ];
+            })
+            ->sortByDesc(fn (array $row) => $row['total'] + ($row['ordenes'] * 1000) + ($row['solicitudes'] * 500))
+            ->take(20)
+            ->values();
+
+        $diasPeriodo = max(1, (int) $desde->diffInDays($hasta) + 1);
+        $periodoAnteriorHasta = $desde->copy()->subSecond();
+        $periodoAnteriorDesde = $periodoAnteriorHasta->copy()->subDays($diasPeriodo - 1)->startOfDay();
+        $costeoAnterior = $service->ranking($periodoAnteriorDesde, $periodoAnteriorHasta, 100);
+        if ($flotaId) {
+            $costeoAnterior['ranking'] = collect($costeoAnterior['ranking'])->where('flota_id', $flotaId)->values()->all();
+            $costeoAnterior['totales']['total'] = collect($costeoAnterior['ranking'])->sum('total');
+        }
+
+        $comparacion = [
+            'periodo_anterior_desde' => $periodoAnteriorDesde->toDateString(),
+            'periodo_anterior_hasta' => $periodoAnteriorHasta->toDateString(),
+            'ordenes' => $this->compareMetric(
+                (clone $ordenesQuery)->count(),
+                $this->countBetween('ordenes_trabajo', 'fecha_orden', $periodoAnteriorDesde, $periodoAnteriorHasta, $flotaId)
+            ),
+            'checklists' => $this->compareMetric(
+                $checklists->count(),
+                $this->countBetween('controles_unidad', 'created_at', $periodoAnteriorDesde, $periodoAnteriorHasta, $flotaId)
+            ),
+            'solicitudes' => $this->compareMetric(
+                (clone $solicitudesQuery)->count(),
+                $this->countBetween('solicitudes_repuestos', 'fecha_solicitud', $periodoAnteriorDesde, $periodoAnteriorHasta, $flotaId)
+            ),
+            'costo_total' => $this->compareMetric((float) $costeo['totales']['total'], (float) $costeoAnterior['totales']['total']),
+        ];
+
+        $mensual = [
+            'labels' => $this->monthLabels($desde, $hasta),
+            'ordenes' => $this->monthlyCounts('ordenes_trabajo', 'fecha_orden', $desde, $hasta, $flotaId),
+            'checklists' => $this->monthlyCounts('controles_unidad', 'created_at', $desde, $hasta, $flotaId),
+            'solicitudes' => $this->monthlyCounts('solicitudes_repuestos', 'fecha_solicitud', $desde, $hasta, $flotaId),
+        ];
+
+        $costosPorBase = $this->costsByBase($desde, $hasta, $flotaId);
+        $rankingFallas = $this->failureRanking($desde, $hasta, $flotaId);
+
+        $totales = [
+            'flota_total' => (clone $flotaQuery)->count(),
+            'ordenes' => (clone $ordenesQuery)->count(),
+            'ordenes_abiertas' => (clone $ordenesQuery)->whereNotIn('estado', ['completada', 'cancelada'])->count(),
+            'vehiculos_parados' => $vehiculosParados,
+            'checklists' => $checklists->count(),
+            'checklists_con_incidencias' => $checklistsConObservaciones,
+            'solicitudes' => (clone $solicitudesQuery)->count(),
+            'solicitudes_urgentes' => (clone $solicitudesQuery)->where('prioridad', 'urgente')->count(),
+            'cambios_cubiertas' => $cambiosCubiertas,
+            'costo_total' => (float) $costeo['totales']['total'],
+            'promedio_cierre_horas' => $promedioCierreHoras,
+        ];
+
+        $charts = [
+            'estadoFlota' => $this->series($estadoFlota),
+            'ordenesPorEstado' => $this->series($ordenesPorEstado),
+            'ordenesPorTipo' => $this->series($ordenesPorTipo),
+            'ordenesPorPrioridad' => $this->series($ordenesPorPrioridad),
+            'solicitudesPorEstado' => $this->series($solicitudesPorEstado),
+            'costosRanking' => [
+                'labels' => $ranking->take(10)->map(fn (array $row) => trim($row['interno'] . ' ' . $row['dominio']))->all(),
+                'series' => $ranking->take(10)->map(fn (array $row) => round((float) $row['total'], 2))->all(),
+            ],
+            'disponibilidad' => [
+                'labels' => ['DISPONIBLES', 'PARADOS'],
+                'series' => [max(0, (int) $totales['flota_total'] - (int) $totales['vehiculos_parados']), (int) $totales['vehiculos_parados']],
+            ],
+            'mensual' => $mensual,
+            'costosPorBase' => [
+                'labels' => $costosPorBase->pluck('base')->all(),
+                'series' => $costosPorBase->pluck('total')->map(fn ($total) => round((float) $total, 2))->all(),
+            ],
+            'rankingFallas' => [
+                'labels' => $rankingFallas->pluck('motivo')->all(),
+                'series' => $rankingFallas->pluck('total')->map(fn ($total) => (int) $total)->all(),
+            ],
+        ];
+
+        return view('admin.bi.flota-estadisticas', compact('desde', 'hasta', 'flotaId', 'flotas', 'totales', 'charts', 'ranking', 'comparacion', 'costosPorBase', 'rankingFallas'));
     }
 
     public function costeoVehiculos(Request $request, VehicleCostService $service): JsonResponse
@@ -262,6 +463,144 @@ class BiController extends Controller
         }
 
         return '4-baja';
+    }
+
+    private function countByVehicle(string $table, string $dateColumn, Carbon $desde, Carbon $hasta, ?int $flotaId = null): array
+    {
+        return DB::table($table)
+            ->selectRaw('flota_id, COUNT(*) as total')
+            ->whereNotNull('flota_id')
+            ->whereBetween($dateColumn, [$desde, $hasta])
+            ->when($flotaId, fn ($query) => $query->where('flota_id', $flotaId))
+            ->groupBy('flota_id')
+            ->pluck('total', 'flota_id')
+            ->map(fn ($total) => (int) $total)
+            ->all();
+    }
+
+    private function countBetween(string $table, string $dateColumn, Carbon $desde, Carbon $hasta, ?int $flotaId = null): int
+    {
+        return DB::table($table)
+            ->whereBetween($dateColumn, [$desde, $hasta])
+            ->when($flotaId, fn ($query) => $query->where('flota_id', $flotaId))
+            ->count();
+    }
+
+    private function compareMetric(float|int $actual, float|int $anterior): array
+    {
+        $variacion = $anterior > 0 ? (($actual - $anterior) / $anterior) * 100 : ($actual > 0 ? 100 : 0);
+
+        return [
+            'actual' => $actual,
+            'anterior' => $anterior,
+            'variacion' => round($variacion, 1),
+        ];
+    }
+
+    private function monthLabels(Carbon $desde, Carbon $hasta): array
+    {
+        $labels = [];
+        $cursor = $desde->copy()->startOfMonth();
+        $end = $hasta->copy()->startOfMonth();
+
+        while ($cursor->lessThanOrEqualTo($end)) {
+            $labels[] = $cursor->format('Y-m');
+            $cursor->addMonth();
+        }
+
+        return $labels;
+    }
+
+    private function monthlyCounts(string $table, string $dateColumn, Carbon $desde, Carbon $hasta, ?int $flotaId = null): array
+    {
+        $labels = $this->monthLabels($desde, $hasta);
+        $rows = DB::table($table)
+            ->selectRaw("DATE_FORMAT($dateColumn, '%Y-%m') as periodo, COUNT(*) as total")
+            ->whereBetween($dateColumn, [$desde, $hasta])
+            ->when($flotaId, fn ($query) => $query->where('flota_id', $flotaId))
+            ->groupByRaw("DATE_FORMAT($dateColumn, '%Y-%m')")
+            ->pluck('total', 'periodo')
+            ->map(fn ($total) => (int) $total);
+
+        return collect($labels)->map(fn (string $label) => (int) ($rows[$label] ?? 0))->all();
+    }
+
+    private function costsByBase(Carbon $desde, Carbon $hasta, ?int $flotaId = null)
+    {
+        $repuestos = DB::table('orden_trabajo_articulos')
+            ->join('ordenes_trabajo', 'ordenes_trabajo.id', '=', 'orden_trabajo_articulos.orden_trabajo_id')
+            ->leftJoin('detalle_cambio_cubiertas', 'detalle_cambio_cubiertas.orden_trabajo_articulo_id', '=', 'orden_trabajo_articulos.id')
+            ->leftJoin('bases', 'bases.id', '=', 'ordenes_trabajo.base_id')
+            ->whereNull('detalle_cambio_cubiertas.id')
+            ->whereBetween('ordenes_trabajo.fecha_orden', [$desde, $hasta])
+            ->when($flotaId, fn ($query) => $query->where('ordenes_trabajo.flota_id', $flotaId))
+            ->groupByRaw("COALESCE(bases.nombre, 'SIN BASE')")
+            ->selectRaw("COALESCE(bases.nombre, 'SIN BASE') as base, COALESCE(SUM(orden_trabajo_articulos.cantidad * orden_trabajo_articulos.valor_unitario), 0) as total")
+            ->get();
+
+        $cubiertas = DB::table('detalle_cambio_cubiertas')
+            ->join('cambios_cubiertas', 'cambios_cubiertas.id', '=', 'detalle_cambio_cubiertas.cambio_cubierta_id')
+            ->leftJoin('ordenes_trabajo', 'ordenes_trabajo.id', '=', 'cambios_cubiertas.orden_trabajo_id')
+            ->leftJoin('bases', 'bases.id', '=', 'ordenes_trabajo.base_id')
+            ->whereBetween('cambios_cubiertas.fecha', [$desde->toDateString(), $hasta->toDateString()])
+            ->when($flotaId, fn ($query) => $query->where('cambios_cubiertas.flota_id', $flotaId))
+            ->groupByRaw("COALESCE(bases.nombre, 'SIN BASE')")
+            ->selectRaw("COALESCE(bases.nombre, 'SIN BASE') as base, COALESCE(SUM(detalle_cambio_cubiertas.valor_unitario), 0) as total")
+            ->get();
+
+        return $repuestos
+            ->concat($cubiertas)
+            ->groupBy('base')
+            ->map(fn ($items, string $base) => [
+                'base' => $base,
+                'total' => (float) $items->sum('total'),
+            ])
+            ->sortByDesc('total')
+            ->take(10)
+            ->values();
+    }
+
+    private function failureRanking(Carbon $desde, Carbon $hasta, ?int $flotaId = null)
+    {
+        return DB::table('orden_trabajo_motivo')
+            ->join('ordenes_trabajo', 'ordenes_trabajo.id', '=', 'orden_trabajo_motivo.orden_trabajo_id')
+            ->join('orden_trabajo_motivos', 'orden_trabajo_motivos.id', '=', 'orden_trabajo_motivo.orden_trabajo_motivo_id')
+            ->whereBetween('ordenes_trabajo.fecha_orden', [$desde, $hasta])
+            ->when($flotaId, fn ($query) => $query->where('ordenes_trabajo.flota_id', $flotaId))
+            ->groupBy('orden_trabajo_motivos.id', 'orden_trabajo_motivos.nombre')
+            ->orderByDesc('total')
+            ->limit(10)
+            ->selectRaw('orden_trabajo_motivos.nombre as motivo, COUNT(*) as total')
+            ->get();
+    }
+
+    private function controlTieneIncidencias(ControlUnidad $control): bool
+    {
+        foreach ([$control->partes ?? [], $control->control_unidad ?? []] as $bloque) {
+            foreach ($bloque as $items) {
+                if (! is_array($items)) {
+                    continue;
+                }
+
+                foreach ($items as $estado) {
+                    if (in_array($estado, ['no_cumple', 'sin_hacer'], true)) {
+                        return true;
+                    }
+                }
+            }
+        }
+
+        return false;
+    }
+
+    private function series($items): array
+    {
+        $collection = collect($items);
+
+        return [
+            'labels' => $collection->keys()->map(fn ($label) => mb_strtoupper((string) $label, 'UTF-8'))->values()->all(),
+            'series' => $collection->values()->map(fn ($total) => (int) $total)->all(),
+        ];
     }
 
     private function dateRange(Request $request): array

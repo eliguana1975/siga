@@ -68,6 +68,8 @@ class Admin extends Controller
         $serviceAssignedStats = $this->serviceAssignedStats();
         $vehicleTypeStats = $this->vehicleTypeStats();
         $operationalAlerts = $alerts->summary();
+        $quickActions = $this->quickActionsForUser($user);
+        $priorityAlerts = $this->priorityAlerts($operationalAlerts, $vencimientosVerificaciones, $vencimientosCarnetsConducir, $vencimientosMatafuegos);
         $purchaseInventoryCharts = $this->purchaseInventoryCharts($operationalAlerts);
         $dashboardChartPreferences = data_get(Auth::user()?->dashboard_preferences, 'chart_types', []);
 
@@ -82,6 +84,8 @@ class Admin extends Controller
             'serviceAssignedStats',
             'vehicleTypeStats',
             'operationalAlerts',
+            'quickActions',
+            'priorityAlerts',
             'purchaseInventoryCharts',
             'dashboardChartPreferences',
             'availableDashboards',
@@ -153,6 +157,138 @@ class Admin extends Controller
             'labels' => $chartLabels,
             'series' => $series,
         ];
+    }
+
+    private function quickActionsForUser($user): array
+    {
+        if (! $user) {
+            return [];
+        }
+
+        $roles = $user->roles->pluck('name')->map(fn ($role) => mb_strtoupper((string) $role, 'UTF-8'));
+        $isChofer = $roles->contains('CHOFER');
+        $isMecanico = $roles->contains('MECANICO');
+        $isTaller = $roles->contains(fn ($role) => in_array($role, ['JEFE_TALLER', 'JEFE DE TALLER', 'MECANICO'], true));
+
+        $actions = [];
+
+        if ($user->can('controles-unidad.crear')) {
+            $actions[] = [
+                'label' => 'Nuevo checklist',
+                'description' => 'Registrar control vehicular',
+                'icon' => 'bi bi-card-checklist',
+                'url' => route('admin.controles-unidad.create'),
+                'variant' => 'primary',
+            ];
+        }
+
+        if ($isTaller && $user->can('ordenes-trabajo.ver')) {
+            $actions[] = [
+                'label' => $user->can('ordenes-trabajo.crear') ? 'Nueva OT' : 'Ver OT',
+                'description' => 'Gestionar trabajos de taller',
+                'icon' => 'bi bi-wrench-adjustable',
+                'url' => route('admin.ordenes-trabajo.index'),
+                'variant' => 'success',
+            ];
+        }
+
+        if (! $isChofer && $user->can('solicitudes-repuestos.crear')) {
+            $actions[] = [
+                'label' => 'Solicitar repuesto',
+                'description' => 'Pedido rapido a compras',
+                'icon' => 'bi bi-cart-plus',
+                'url' => route('admin.solicitudes-repuestos.create'),
+                'variant' => 'warning',
+            ];
+        }
+
+        if (! $isChofer && $user->can('bi.ver')) {
+            $actions[] = [
+                'label' => 'Estadisticas de flota',
+                'description' => 'Analizar costos y fallas',
+                'icon' => 'bi bi-bar-chart-line',
+                'url' => route('admin.bi.flota-estadisticas'),
+                'variant' => 'info',
+            ];
+        }
+
+        if ($user->can('inventarios.ver')) {
+            $actions[] = [
+                'label' => 'Stock critico',
+                'description' => 'Revisar faltantes',
+                'icon' => 'bi bi-box-seam',
+                'url' => route('admin.inventarios.bajo-stock'),
+                'variant' => 'danger',
+            ];
+        }
+
+        return array_slice($actions, 0, $isMecanico ? 4 : 6);
+    }
+
+    private function priorityAlerts(array $operationalAlerts, $vencimientosVerificaciones, $vencimientosCarnetsConducir, $vencimientosMatafuegos): array
+    {
+        $alerts = [];
+
+        $counts = $operationalAlerts['counts'] ?? [];
+        if ((int) ($counts['stock_critico'] ?? 0) > 0) {
+            $alerts[] = [
+                'priority' => 'critica',
+                'title' => 'Stock critico',
+                'detail' => (int) $counts['stock_critico'] . ' articulo(s) debajo del minimo',
+                'url' => route('admin.inventarios.bajo-stock'),
+            ];
+        }
+
+        if ((int) ($counts['reparaciones_vencidas'] ?? 0) > 0) {
+            $alerts[] = [
+                'priority' => 'critica',
+                'title' => 'Reparaciones vencidas',
+                'detail' => (int) $counts['reparaciones_vencidas'] . ' reparacion(es) con compromiso vencido',
+                'url' => route('admin.reparaciones-articulos.index'),
+            ];
+        }
+
+        if (($vencimientosMatafuegos ?? collect())->isNotEmpty()) {
+            $alerts[] = [
+                'priority' => 'alta',
+                'title' => 'Matafuegos por vencer',
+                'detail' => $vencimientosMatafuegos->count() . ' matafuego(s) dentro de 30 dias',
+                'url' => route('admin.index'),
+            ];
+        }
+
+        if (($vencimientosVerificaciones ?? collect())->isNotEmpty()) {
+            $alerts[] = [
+                'priority' => 'alta',
+                'title' => 'Vencimientos tecnicos',
+                'detail' => $vencimientosVerificaciones->count() . ' verificacion(es) proximas',
+                'url' => route('admin.verificaciones-tecnicas.index'),
+            ];
+        }
+
+        if (($vencimientosCarnetsConducir ?? collect())->isNotEmpty()) {
+            $alerts[] = [
+                'priority' => 'media',
+                'title' => 'Carnets por vencer',
+                'detail' => $vencimientosCarnetsConducir->count() . ' carnet(s) proximos',
+                'url' => route('admin.empleados.index'),
+            ];
+        }
+
+        if ((int) ($counts['solicitudes_demoradas'] ?? 0) > 0) {
+            $alerts[] = [
+                'priority' => 'media',
+                'title' => 'Solicitudes demoradas',
+                'detail' => (int) $counts['solicitudes_demoradas'] . ' solicitud(es) abiertas hace mas de 3 dias',
+                'url' => route('admin.solicitudes-repuestos.index'),
+            ];
+        }
+
+        return collect($alerts)
+            ->sortBy(fn (array $alert) => ['critica' => 1, 'alta' => 2, 'media' => 3][$alert['priority']] ?? 9)
+            ->take(6)
+            ->values()
+            ->all();
     }
 
     private function purchaseInventoryCharts(array $operationalAlerts): array

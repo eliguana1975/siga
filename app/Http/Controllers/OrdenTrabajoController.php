@@ -588,6 +588,8 @@ class OrdenTrabajoController extends Controller
             'cantidad' => $request->filled('cantidad') ? $request->input('cantidad') : 1,
             'valor_unitario' => $request->filled('valor_unitario') ? $this->normalizeDecimal($request->input('valor_unitario')) : 0,
             'observaciones' => $request->filled('observaciones') ? trim((string) $request->input('observaciones')) : null,
+            'matafuego_numero' => $request->filled('matafuego_numero') ? mb_strtoupper(trim((string) $request->input('matafuego_numero')), 'UTF-8') : null,
+            'matafuego_fecha_vencimiento' => $request->filled('matafuego_fecha_vencimiento') ? $request->input('matafuego_fecha_vencimiento') : null,
         ]);
 
         $validator = Validator::make($request->all(), [
@@ -598,10 +600,14 @@ class OrdenTrabajoController extends Controller
             'cantidad' => ['required', 'integer', 'min:1'],
             'valor_unitario' => ['required', 'numeric', 'min:0'],
             'observaciones' => ['nullable', 'string'],
+            'matafuego_numero' => ['nullable', 'string', 'max:120'],
+            'matafuego_fecha_vencimiento' => ['nullable', 'date'],
         ], [], [
             'categoria_id' => 'categoria',
             'unidad_medida_id' => 'unidad',
             'valor_unitario' => 'valor unitario',
+            'matafuego_numero' => 'numero del matafuego',
+            'matafuego_fecha_vencimiento' => 'fecha de vencimiento del matafuego',
         ]);
 
         if ($validator->fails()) {
@@ -631,6 +637,21 @@ class OrdenTrabajoController extends Controller
                 ->with('error', 'Las cubiertas no se cargan desde Articulos usados. Use Gestion de cubiertas.');
         }
 
+        if ($this->textoEsMatafuego($data['nombre'] ?? '', $data['codigo_producto'] ?? '', $categoria?->nombre ?? '')) {
+            $request->validate([
+                'matafuego_numero' => ['required', 'string', 'max:120'],
+                'matafuego_fecha_vencimiento' => ['required', 'date'],
+            ], [], [
+                'matafuego_numero' => 'numero del matafuego',
+                'matafuego_fecha_vencimiento' => 'fecha de vencimiento del matafuego',
+            ]);
+
+            $data['matafuego_numero'] = mb_strtoupper(trim((string) $request->input('matafuego_numero')), 'UTF-8');
+            $data['matafuego_fecha_vencimiento'] = $request->input('matafuego_fecha_vencimiento');
+        } else {
+            unset($data['matafuego_numero'], $data['matafuego_fecha_vencimiento']);
+        }
+
         DB::transaction(function () use ($orden, $data) {
             $articulo = Articulo::create([
                 'categoria_id' => $data['categoria_id'],
@@ -650,6 +671,8 @@ class OrdenTrabajoController extends Controller
                 'cantidad' => (int) $data['cantidad'],
                 'valor_unitario' => (float) $data['valor_unitario'],
                 'inventario_descontado' => false,
+                'matafuego_numero' => $data['matafuego_numero'] ?? null,
+                'matafuego_fecha_vencimiento' => $data['matafuego_fecha_vencimiento'] ?? null,
                 'observaciones' => $data['observaciones'] ?? 'Articulo cargado sin descuento de inventario.',
             ]);
             $this->marcarOrdenActualizada($orden);
@@ -950,6 +973,11 @@ class OrdenTrabajoController extends Controller
     private function textoEsRopaEpp(?string $categoria): bool
     {
         return $this->articleClassifier->isRopaEppCategory($categoria);
+    }
+
+    private function textoEsMatafuego(?string $nombre, ?string $codigo, ?string $categoria): bool
+    {
+        return $this->articleClassifier->isMatafuegoText($nombre, $codigo, $categoria);
     }
 
     private function normalizeDecimal(mixed $value): string

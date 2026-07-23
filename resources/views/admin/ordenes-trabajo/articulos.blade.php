@@ -411,6 +411,23 @@
                                             <input type="text" name="observaciones" id="quick-articulo-observaciones" class="form-control form-control-sm"
                                                 value="{{ old('observaciones') }}" maxlength="255">
                                         </div>
+                                        <div id="quick-matafuego-fields" class="col-12 {{ old('matafuego_numero') || old('matafuego_fecha_vencimiento') ? '' : 'd-none' }}">
+                                            <div class="row g-2">
+                                                <div class="col-12 col-md-3">
+                                                    <label for="quick-matafuego-numero" class="form-label">Nro. matafuego (*)</label>
+                                                    <input type="text" name="matafuego_numero" id="quick-matafuego-numero" class="form-control form-control-sm text-uppercase"
+                                                        value="{{ old('matafuego_numero') }}" maxlength="120" autocomplete="off">
+                                                </div>
+                                                <div class="col-12 col-md-3">
+                                                    <label for="quick-matafuego-vencimiento" class="form-label">Vencimiento (*)</label>
+                                                    <input type="date" name="matafuego_fecha_vencimiento" id="quick-matafuego-vencimiento" class="form-control form-control-sm"
+                                                        value="{{ old('matafuego_fecha_vencimiento') }}">
+                                                </div>
+                                                <div class="col-12 col-md-6 d-flex align-items-end">
+                                                    <small class="text-muted">Se guarda junto con la orden para alertar vencimientos.</small>
+                                                </div>
+                                            </div>
+                                        </div>
                                         <div class="col-12 col-md-4 col-xl-2">
                                             <button type="submit" class="btn btn-sm btn-info w-100">
                                                 <i class="bi bi-plus-circle"></i> Crear y agregar
@@ -508,6 +525,12 @@
             const matafuegoFields = document.getElementById('matafuego-fields');
             const matafuegoNumero = document.getElementById('matafuego-numero');
             const matafuegoVencimiento = document.getElementById('matafuego-vencimiento');
+            const quickNombre = document.getElementById('quick-articulo-nombre');
+            const quickCodigo = document.getElementById('quick-articulo-codigo');
+            const quickCategoria = document.getElementById('quick-articulo-categoria');
+            const quickMatafuegoFields = document.getElementById('quick-matafuego-fields');
+            const quickMatafuegoNumero = document.getElementById('quick-matafuego-numero');
+            const quickMatafuegoVencimiento = document.getElementById('quick-matafuego-vencimiento');
 
             if (!codigoInput || !articuloSelect) {
                 return;
@@ -637,7 +660,50 @@
                 this.value = this.value.toUpperCase();
             });
 
+            const isMatafuegoText = function () {
+                const categoriaText = quickCategoria?.options[quickCategoria.selectedIndex]?.text || '';
+                const text = [
+                    quickNombre?.value || '',
+                    quickCodigo?.value || '',
+                    categoriaText,
+                ].join(' ').toLowerCase();
+
+                return ['matafuego', 'mata fuego', 'extintor', 'extinguidor'].some(function (keyword) {
+                    return text.includes(keyword);
+                });
+            };
+
+            const updateQuickMatafuegoFields = function () {
+                const esMatafuego = isMatafuegoText();
+
+                quickMatafuegoFields?.classList.toggle('d-none', !esMatafuego);
+
+                if (quickMatafuegoNumero) {
+                    quickMatafuegoNumero.required = esMatafuego;
+                    if (!esMatafuego) {
+                        quickMatafuegoNumero.value = '';
+                    }
+                }
+
+                if (quickMatafuegoVencimiento) {
+                    quickMatafuegoVencimiento.required = esMatafuego;
+                    if (!esMatafuego) {
+                        quickMatafuegoVencimiento.value = '';
+                    }
+                }
+            };
+
+            [quickNombre, quickCodigo, quickCategoria].forEach(function (element) {
+                element?.addEventListener('input', updateQuickMatafuegoFields);
+                element?.addEventListener('change', updateQuickMatafuegoFields);
+            });
+
+            quickMatafuegoNumero?.addEventListener('input', function () {
+                this.value = this.value.toUpperCase();
+            });
+
             updateMatafuegoFields();
+            updateQuickMatafuegoFields();
         });
     </script>
 @endpush

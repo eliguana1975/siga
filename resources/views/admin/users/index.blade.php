@@ -18,6 +18,127 @@
             grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
             gap: .5rem .9rem;
         }
+
+        .users-index .card {
+            background: #1c1a2d;
+            border: 1px solid #3f4567;
+        }
+
+        .users-index .card-header {
+            border-bottom: 1px solid #3f4567;
+        }
+
+        .users-index .form-label,
+        .users-index .card-title,
+        .users-index small,
+        .users-index td,
+        .users-index th {
+            color: #f3f6ff;
+        }
+
+        .users-index .text-muted,
+        .users-index .text-subtitle {
+            color: #c5cce0 !important;
+        }
+
+        .users-index .form-control,
+        .users-index .input-group-text {
+            background-color: #111528;
+            border-color: #56618c;
+            color: #f8faff;
+        }
+
+        .users-index .form-control::placeholder {
+            color: #b8c1d8;
+            opacity: 1;
+        }
+
+        .users-index .btn-outline-secondary {
+            background: #242945;
+            border-color: #7f8dc6;
+            color: #eef3ff;
+            font-weight: 600;
+        }
+
+        .users-index .btn-outline-secondary:hover,
+        .users-index .btn-outline-secondary:focus {
+            background: #435ebe;
+            border-color: #9fb0ff;
+            color: #ffffff;
+        }
+
+        .users-index .btn-light-secondary {
+            background: #d5dbea;
+            border-color: #d5dbea;
+            color: #111827;
+            font-weight: 600;
+        }
+
+        .users-index .table-responsive {
+            border: 1px solid #4a5074;
+            border-radius: 8px;
+            background: #191729;
+        }
+
+        .users-index #datatable {
+            --bs-table-bg: transparent;
+            --bs-table-striped-bg: #29283d;
+            --bs-table-striped-color: #f4f7ff;
+            --bs-table-color: #f4f7ff;
+            color: #f4f7ff;
+        }
+
+        .users-index #datatable thead th {
+            background: #24243a;
+            border-bottom: 1px solid #9aa7d9;
+            color: #ffffff;
+            font-weight: 700;
+        }
+
+        .users-index #datatable tbody tr {
+            border-color: #464b6a;
+        }
+
+        .users-index #datatable tbody td {
+            border-color: #464b6a;
+            vertical-align: middle;
+        }
+
+        .users-index #datatable tbody tr:hover td {
+            background: #303754;
+            color: #ffffff;
+        }
+
+        .users-index .badge {
+            color: #ffffff !important;
+            font-weight: 700;
+            letter-spacing: 0;
+        }
+
+        .users-index .bg-light-secondary {
+            background-color: #6f7a8f !important;
+        }
+
+        .users-index .bg-light-primary {
+            background-color: #4f6cf5 !important;
+        }
+
+        .users-index .bg-light-success {
+            background-color: #12804d !important;
+        }
+
+        .users-index .bg-light-info {
+            background-color: #0891b2 !important;
+        }
+
+        .users-index .bg-light-warning {
+            background-color: #f4c430 !important;
+            color: #1f2937 !important;
+        }
+
+        .users-index .bg-light-danger {
+            background-color: #dc2626 !important;
+        }
     </style>
 @endpush
 
@@ -29,6 +150,7 @@
 @endphp
 
 @section('content')
+    <div class="users-index">
     <div class="page-heading">
         <div class="d-flex justify-content-between align-items-center">
             <div>
@@ -239,6 +361,7 @@
                 </div>
             </div>
         </section>
+    </div>
     </div>
 
     @if ($canCreateUsers)

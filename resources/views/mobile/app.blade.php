@@ -15,11 +15,18 @@
         data-csrf-token="{{ csrf_token() }}">
         <section class="login-screen" data-view="login">
             <div class="brand-block">
-                <span class="brand-mark">S</span>
+                <span class="brand-mark">SF</span>
                 <div>
-                    <h1>SIGA</h1>
+                    <h1>SIGA Fleet</h1>
                     <p>Operaciones de taller y flota desde el celular.</p>
                 </div>
+            </div>
+            <div class="install-panel panel" id="installPanel">
+                <div>
+                    <strong>Instalar en el telefono</strong>
+                    <p id="installHelp">Usa SIGA como app desde la pantalla de inicio.</p>
+                </div>
+                <button type="button" id="installAppButton">Instalar app</button>
             </div>
             <form id="loginForm" class="panel">
                 <label>Email

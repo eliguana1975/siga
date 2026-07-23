@@ -26,9 +26,11 @@ return Application::configure(basePath: dirname(__DIR__))
             'check.permission' => \App\Http\Middleware\CheckPermission::class,
             'active.user' => \App\Http\Middleware\EnsureUserIsActive::class,
             'password.changed' => \App\Http\Middleware\EnsurePasswordChanged::class,
+            'uppercase.operational.text' => \App\Http\Middleware\UppercaseOperationalText::class,
         ]);
 
         $middleware->appendToGroup('web', \App\Http\Middleware\PreventBrowserCache::class);
+        $middleware->appendToGroup('web', \App\Http\Middleware\UppercaseOperationalText::class);
         $middleware->appendToGroup('web', \App\Http\Middleware\EnsureUserIsActive::class);
         $middleware->appendToGroup('web', \App\Http\Middleware\EnsurePasswordChanged::class);
         $middleware->appendToGroup('web', \App\Http\Middleware\CheckPermission::class);

@@ -51,6 +51,54 @@
             grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
             gap: .5rem .9rem;
         }
+
+        .roles-permission-tools {
+            display: flex;
+            flex-wrap: wrap;
+            gap: .5rem;
+            margin-bottom: .8rem;
+        }
+
+        .roles-permission-group {
+            border: 1px solid var(--bs-border-color);
+            border-radius: .45rem;
+            overflow: hidden;
+        }
+
+        .roles-permission-group + .roles-permission-group {
+            margin-top: .8rem;
+        }
+
+        .roles-permission-group-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: .75rem;
+            padding: .65rem .8rem;
+            background: rgba(67, 94, 190, .12);
+            border-bottom: 1px solid var(--bs-border-color);
+        }
+
+        .roles-permission-group-header h6 {
+            margin: 0;
+            font-weight: 800;
+        }
+
+        .roles-permission-group-actions {
+            display: flex;
+            flex-wrap: wrap;
+            gap: .35rem;
+        }
+
+        .roles-permission-group-body {
+            padding: .75rem .8rem;
+        }
+
+        .roles-permission-count {
+            color: var(--bs-primary);
+            font-size: .82rem;
+            font-weight: 700;
+        }
     </style>
 @endpush
 
@@ -284,23 +332,58 @@
 
                     <div class="mb-3">
                         <label class="form-label">Asignar permisos</label>
-                        @foreach ($groupedPermissions as $groupName => $groupPermissions)
-                            <h6 class="mt-3">{{ $groupName }}</h6>
-                            <div class="row">
-                                @foreach ($groupPermissions as $permission)
-                                    <div class="col-12 col-md-6">
-                                        <div class="form-check">
-                                            <input class="form-check-input" type="checkbox" name="permissions[]"
-                                                value="{{ $permission->id }}" id="create_perm_{{ $permission->id }}"
-                                                @checked(in_array((string) $permission->id, old('permissions', []), true))>
-                                            <label class="form-check-label" for="create_perm_{{ $permission->id }}">
-                                                {{ $permissionLabels[$permission->name] ?? $permission->name }}
-                                            </label>
+                        <div class="roles-permission-tools" data-permission-scope="create">
+                            <button type="button" class="btn btn-sm btn-outline-primary" data-permission-action="all">
+                                <i class="bi bi-check2-square"></i> Todos
+                            </button>
+                            <button type="button" class="btn btn-sm btn-outline-secondary" data-permission-action="none">
+                                <i class="bi bi-square"></i> Limpiar
+                            </button>
+                            <button type="button" class="btn btn-sm btn-outline-info" data-permission-template="chofer">Chofer</button>
+                            <button type="button" class="btn btn-sm btn-outline-info" data-permission-template="mecanico">Mecanico</button>
+                            <button type="button" class="btn btn-sm btn-outline-info" data-permission-template="jefe_taller">Jefe taller</button>
+                            <button type="button" class="btn btn-sm btn-outline-info" data-permission-template="compras">Compras</button>
+                            <button type="button" class="btn btn-sm btn-outline-info" data-permission-template="deposito">Deposito</button>
+                            <button type="button" class="btn btn-sm btn-outline-info" data-permission-template="gerencia">Gerencia</button>
+                            <button type="button" class="btn btn-sm btn-outline-info" data-permission-template="auditor">Auditor</button>
+                        </div>
+                        <div data-permission-container="create">
+                            @foreach ($groupedPermissions as $groupName => $groupPermissions)
+                                <div class="roles-permission-group" data-permission-group>
+                                    <div class="roles-permission-group-header">
+                                        <div>
+                                            <h6>{{ $groupName }}</h6>
+                                            <span class="roles-permission-count" data-permission-count>0 seleccionados</span>
+                                        </div>
+                                        <div class="roles-permission-group-actions">
+                                            <button type="button" class="btn btn-sm btn-light-primary" data-permission-action="group-all">
+                                                Marcar grupo
+                                            </button>
+                                            <button type="button" class="btn btn-sm btn-light-secondary" data-permission-action="group-none">
+                                                Limpiar grupo
+                                            </button>
                                         </div>
                                     </div>
-                                @endforeach
-                            </div>
-                        @endforeach
+                                    <div class="roles-permission-group-body">
+                                        <div class="row">
+                                            @foreach ($groupPermissions as $permission)
+                                                <div class="col-12 col-md-6">
+                                                    <div class="form-check">
+                                                        <input class="form-check-input" type="checkbox" name="permissions[]"
+                                                            value="{{ $permission->id }}" id="create_perm_{{ $permission->id }}"
+                                                            data-permission-name="{{ $permission->name }}"
+                                                            @checked(in_array((string) $permission->id, old('permissions', []), true))>
+                                                        <label class="form-check-label" for="create_perm_{{ $permission->id }}">
+                                                            {{ $permissionLabels[$permission->name] ?? $permission->name }}
+                                                        </label>
+                                                    </div>
+                                                </div>
+                                            @endforeach
+                                        </div>
+                                    </div>
+                                </div>
+                            @endforeach
+                        </div>
                         @if (session('open_modal') === 'createRoleModal')
                             @error('permissions')
                                 <small class="text-danger">{{ $message }}</small>
@@ -392,25 +475,60 @@
 
                         <div class="mb-3">
                             <label class="form-label">Asignar permisos</label>
-                            @foreach ($groupedPermissions as $groupName => $groupPermissions)
-                                <h6 class="mt-3">{{ $groupName }}</h6>
-                                <div class="row">
-                                    @foreach ($groupPermissions as $permission)
-                                        <div class="col-12 col-md-6">
-                                            <div class="form-check">
-                                                <input class="form-check-input" type="checkbox" name="permissions[]"
-                                                    value="{{ $permission->id }}"
-                                                    id="edit_perm_{{ $role->id }}_{{ $permission->id }}"
-                                                    @checked(in_array((int) $permission->id, $selectedPermissions, true))>
-                                                <label class="form-check-label"
-                                                    for="edit_perm_{{ $role->id }}_{{ $permission->id }}">
-                                                    {{ $permissionLabels[$permission->name] ?? $permission->name }}
-                                                </label>
+                            <div class="roles-permission-tools" data-permission-scope="edit-{{ $role->id }}">
+                                <button type="button" class="btn btn-sm btn-outline-primary" data-permission-action="all">
+                                    <i class="bi bi-check2-square"></i> Todos
+                                </button>
+                                <button type="button" class="btn btn-sm btn-outline-secondary" data-permission-action="none">
+                                    <i class="bi bi-square"></i> Limpiar
+                                </button>
+                                <button type="button" class="btn btn-sm btn-outline-info" data-permission-template="chofer">Chofer</button>
+                                <button type="button" class="btn btn-sm btn-outline-info" data-permission-template="mecanico">Mecanico</button>
+                                <button type="button" class="btn btn-sm btn-outline-info" data-permission-template="jefe_taller">Jefe taller</button>
+                                <button type="button" class="btn btn-sm btn-outline-info" data-permission-template="compras">Compras</button>
+                                <button type="button" class="btn btn-sm btn-outline-info" data-permission-template="deposito">Deposito</button>
+                                <button type="button" class="btn btn-sm btn-outline-info" data-permission-template="gerencia">Gerencia</button>
+                                <button type="button" class="btn btn-sm btn-outline-info" data-permission-template="auditor">Auditor</button>
+                            </div>
+                            <div data-permission-container="edit-{{ $role->id }}">
+                                @foreach ($groupedPermissions as $groupName => $groupPermissions)
+                                    <div class="roles-permission-group" data-permission-group>
+                                        <div class="roles-permission-group-header">
+                                            <div>
+                                                <h6>{{ $groupName }}</h6>
+                                                <span class="roles-permission-count" data-permission-count>0 seleccionados</span>
+                                            </div>
+                                            <div class="roles-permission-group-actions">
+                                                <button type="button" class="btn btn-sm btn-light-primary" data-permission-action="group-all">
+                                                    Marcar grupo
+                                                </button>
+                                                <button type="button" class="btn btn-sm btn-light-secondary" data-permission-action="group-none">
+                                                    Limpiar grupo
+                                                </button>
                                             </div>
                                         </div>
-                                    @endforeach
-                                </div>
-                            @endforeach
+                                        <div class="roles-permission-group-body">
+                                            <div class="row">
+                                                @foreach ($groupPermissions as $permission)
+                                                    <div class="col-12 col-md-6">
+                                                        <div class="form-check">
+                                                            <input class="form-check-input" type="checkbox" name="permissions[]"
+                                                                value="{{ $permission->id }}"
+                                                                id="edit_perm_{{ $role->id }}_{{ $permission->id }}"
+                                                                data-permission-name="{{ $permission->name }}"
+                                                                @checked(in_array((int) $permission->id, $selectedPermissions, true))>
+                                                            <label class="form-check-label"
+                                                                for="edit_perm_{{ $role->id }}_{{ $permission->id }}">
+                                                                {{ $permissionLabels[$permission->name] ?? $permission->name }}
+                                                            </label>
+                                                        </div>
+                                                    </div>
+                                                @endforeach
+                                            </div>
+                                        </div>
+                                    </div>
+                                @endforeach
+                            </div>
                             @if (session('open_modal') === 'editRoleModal-' . $role->id)
                                 @error('permissions')
                                     <small class="text-danger">{{ $message }}</small>
@@ -457,6 +575,212 @@
         @endif
     @endforeach
 @endsection
+
+@push('scripts')
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const templates = {
+                chofer: [
+                    'dashboard.ver',
+                    'controles-unidad.crear',
+                    'controles-unidad.ver',
+                    'chat.ver',
+                    'chat.crear',
+                ],
+                mecanico: [
+                    'dashboard.ver',
+                    'ordenes-trabajo.ver',
+                    'ordenes-trabajo.editar',
+                    'ordenes-trabajo-articulos.agregar',
+                    'ordenes-trabajo-articulos.quitar',
+                    'ordenes-trabajo-motivos.ver',
+                    'controles-unidad.ver',
+                    'solicitudes-repuestos.ver',
+                    'solicitudes-repuestos.crear',
+                    'reparaciones-articulos.ver',
+                    'reparaciones-articulos.editar',
+                    'chat.ver',
+                    'chat.crear',
+                ],
+                jefe_taller: [
+                    'dashboard.ver',
+                    'bi.ver',
+                    'ordenes-trabajo.ver',
+                    'ordenes-trabajo.crear',
+                    'ordenes-trabajo.editar',
+                    'ordenes-trabajo-articulos.agregar',
+                    'ordenes-trabajo-articulos.quitar',
+                    'ordenes-trabajo-motivos.ver',
+                    'gestion-cubiertas.ver',
+                    'movimiento-cubiertas.ver',
+                    'movimiento-cubiertas.crear',
+                    'controles-unidad.ver',
+                    'controles-unidad.crear',
+                    'servicios-kilometraje.ver',
+                    'servicios-kilometraje.crear',
+                    'flota.ver',
+                    'solicitudes-repuestos.ver',
+                    'solicitudes-repuestos.crear',
+                    'reparaciones-articulos.ver',
+                    'reparaciones-articulos.editar',
+                    'inventarios.ver',
+                    'chat.ver',
+                    'chat.crear',
+                ],
+                compras: [
+                    'dashboard.ver',
+                    'pedidos-articulos.ver',
+                    'pedidos-articulos.crear',
+                    'pedidos-articulos.editar',
+                    'solicitudes-repuestos.ver',
+                    'solicitudes-repuestos.aprobar',
+                    'solicitudes-repuestos.rechazar',
+                    'solicitudes-repuestos.catalogar',
+                    'solicitudes-repuestos.generar-pedido',
+                    'ordenes-compra.ver',
+                    'ordenes-compra.crear',
+                    'ordenes-compra.editar',
+                    'ordenes-compra.enviar-mail',
+                    'compras.ver',
+                    'entradas.ver',
+                    'entradas.crear',
+                    'proveedores.ver',
+                    'proveedores.crear',
+                    'articulos.ver',
+                    'inventarios.ver',
+                ],
+                deposito: [
+                    'dashboard.ver',
+                    'articulos.ver',
+                    'inventarios.ver',
+                    'inventarios.crear',
+                    'inventarios.editar',
+                    'inventario-transferencias.ver',
+                    'inventario-transferencias.crear',
+                    'entradas.ver',
+                    'entradas.crear',
+                    'depositos.ver',
+                    'solicitudes-repuestos.ver',
+                ],
+                gerencia: [
+                    'dashboard.ver',
+                    'bi.ver',
+                    'flota.ver',
+                    'ordenes-trabajo.ver',
+                    'controles-unidad.ver',
+                    'historial-articulos-vehiculo.ver',
+                    'servicios-kilometraje.ver',
+                    'verificaciones-tecnicas.ver',
+                    'solicitudes-repuestos.ver',
+                    'pedidos-articulos.ver',
+                    'ordenes-compra.ver',
+                    'compras.ver',
+                    'inventarios.ver',
+                    'proveedores.ver',
+                    'bitacoras.ver',
+                ],
+                auditor: [
+                    'dashboard.ver',
+                    'bi.ver',
+                    'flota.ver',
+                    'ordenes-trabajo.ver',
+                    'controles-unidad.ver',
+                    'historial-articulos-vehiculo.ver',
+                    'servicios-kilometraje.ver',
+                    'verificaciones-tecnicas.ver',
+                    'solicitudes-repuestos.ver',
+                    'pedidos-articulos.ver',
+                    'ordenes-compra.ver',
+                    'compras.ver',
+                    'inventarios.ver',
+                    'proveedores.ver',
+                    'bitacoras.ver',
+                    'auditoria-operativa.ver',
+                ],
+            };
+
+            function permissionCheckboxes(container) {
+                return Array.from(container.querySelectorAll('input[name="permissions[]"]'));
+            }
+
+            function refreshGroupCount(group) {
+                const count = group.querySelector('[data-permission-count]');
+                const checkboxes = permissionCheckboxes(group);
+                const selected = checkboxes.filter(checkbox => checkbox.checked).length;
+
+                if (count) {
+                    count.textContent = `${selected} de ${checkboxes.length} seleccionados`;
+                }
+            }
+
+            function refreshAllCounts(container) {
+                container.querySelectorAll('[data-permission-group]').forEach(refreshGroupCount);
+            }
+
+            document.querySelectorAll('[data-permission-container]').forEach(refreshAllCounts);
+
+            document.addEventListener('change', function(event) {
+                if (!event.target.matches('input[name="permissions[]"]')) {
+                    return;
+                }
+
+                const group = event.target.closest('[data-permission-group]');
+                if (group) {
+                    refreshGroupCount(group);
+                }
+            });
+
+            document.addEventListener('click', function(event) {
+                const button = event.target.closest('[data-permission-action]');
+                if (!button) {
+                    return;
+                }
+
+                const action = button.dataset.permissionAction;
+                let container = null;
+
+                if (action === 'all' || action === 'none') {
+                    const scope = button.closest('[data-permission-scope]')?.dataset.permissionScope;
+                    container = document.querySelector(`[data-permission-container="${scope}"]`);
+                }
+
+                if (action === 'group-all' || action === 'group-none') {
+                    container = button.closest('[data-permission-group]');
+                }
+
+                if (!container) {
+                    return;
+                }
+
+                const checked = action === 'all' || action === 'group-all';
+                permissionCheckboxes(container).forEach(checkbox => {
+                    checkbox.checked = checked;
+                });
+                refreshAllCounts(container.closest('[data-permission-container]') || container);
+            });
+
+            document.addEventListener('click', function(event) {
+                const button = event.target.closest('[data-permission-template]');
+                if (!button) {
+                    return;
+                }
+
+                const scope = button.closest('[data-permission-scope]')?.dataset.permissionScope;
+                const container = document.querySelector(`[data-permission-container="${scope}"]`);
+                const permissions = templates[button.dataset.permissionTemplate] || [];
+
+                if (!container) {
+                    return;
+                }
+
+                permissionCheckboxes(container).forEach(checkbox => {
+                    checkbox.checked = permissions.includes(checkbox.dataset.permissionName);
+                });
+                refreshAllCounts(container);
+            });
+        });
+    </script>
+@endpush
 
 @push('scripts')
     <script data-open-modal="{{ session('open_modal') }}">

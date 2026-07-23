@@ -13,7 +13,8 @@
     <link rel="dns-prefetch" href="//fonts.bunny.net">
     <link href="https://fonts.bunny.net/css?family=Nunito" rel="stylesheet">
 
-    <link rel="shortcut icon" href="{{ asset('assets/compiled/svg/favicon.svg') }}" type="image/x-icon">
+    <link rel="shortcut icon" href="{{ asset('assets/compiled/svg/favicon.svg') }}?v=flota" type="image/svg+xml">
+    <link rel="icon" href="{{ asset('assets/compiled/svg/favicon.svg') }}?v=flota" type="image/svg+xml">
     <link rel="stylesheet" href="{{ asset('assets/compiled/css/app.css') }}">
     <link id="app-dark-css" rel="stylesheet" href="{{ asset('assets/compiled/css/app-dark.css') }}">
     <link rel="stylesheet" href="{{ asset('assets/compiled/css/auth.css') }}">
